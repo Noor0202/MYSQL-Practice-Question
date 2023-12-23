@@ -3,21 +3,19 @@ MySQL Practice with Sakila Database  Welcome to the MySQL Practice repository! T
 
 ## How to Use:
 
-  # Clone the Repository:  
+  ### Clone the Repository:  
       Clone this repository to your local machine to access the Sakila sample database and practice questions.
     
-  # Set Up Sakila Database:
+  ### Set Up Sakila Database:
       Import the Sakila database into your MySQL server. You can find the Sakila database SQL file here.
 
-  # Explore the Questions:
+  ### Explore the Questions:
       Navigate through the questions directory to find a variety of MySQL practice questions categorized by topics.
 
-  # Practice and Learn:
+  ### Practice and Learn:
       Execute the queries in your MySQL environment, and analyze the results. Use these exercises to strengthen your understanding of SQL concepts.
 
 ## Topics Covered:
-
-Topics Covered:
 
     1. Retrieving Data
     2. Filtering with WHERE Clause
