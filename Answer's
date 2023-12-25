@@ -1,0 +1,50 @@
+### Easy Questions:
+
+1. Retrieve all columns from the "film" table.
+-> describe film;
+-> show columns from film;
+
+2. Select the distinct values of the "rating" column from the "film" table.
+-> select distinct rating as Different_Rating from film;
+
+3. Display the first 10 rows from the "actor" table.
+-> select * from actor limit 10;
+
+4. List all films with a rating of 'PG-13' from the "film" table.
+->  select  * from film where rating = 'PG-13';
+
+5. Count the number of films in the "film" table.
+-> select count(film_id) as 'Total Number Of City' from film;
+
+6. Show the titles of films released after the year 2005 from the "film" table.
+-> select title as 'Film Name After 2005' from film where release_year > 2005;
+
+7. Retrieve the names of customers who live in the city 'London' from the "customer" table.
+-> select CONCAT(first_name,' ',last_name) as 'Customer From London' from customer where customer_id in (select id from customer_list where city = 'london');
+-> select CONCAT(first_name,' ',last_name) as 'Customer From London' from customer inner join customer_list on customer.customer_id = customer_list.id where customer_list.city = 'london';
+
+8. Display the rental details for film ID 5 from the "rental" table.
+-> select * from rental where inventory_id in ( select inventory_id from inventory where film_id = 5 );
+
+9. List all films where the title contains the word 'love' from the "film" table.
+-> select title from film where title like '%love%';
+
+10. Find the total number of actors in the "actor" table.
+->  select count(actor_id) as 'Total No of Actor' from actor;
+
+### Middle Questions:
+
+11. Retrieve the names of customers who have rented more than five films from the "customer" and "rental" tables.
+->  select concat(first_name, ' ', last_name) from customer where customer_id in ( select customer_id from rental group by customer_id having count(customer_id) > 5);
+
+12. List the films that were rented on or after '2023-01-01' from the "rental" table.
+->  select film.title from film inner join ( select rental.rental_date, inventory.film_id from rental inner join inventory on rental.inventory_id = inventory.inventory_id where rental.rental_date >= '2023-01-01' ) as rental_inventory on film.film_id = rental_inventory.film_id;
+
+13. Display the average rental duration for each film from the "rental" table.
+->  Confused about rental, film, and inventory table and there relations
+
+14. Find the top 10 customers who have paid the most in total for rentals from the "payment" table.
+->  select inr_tbl.customer_id as 'Customer_ID',concat(customer.first_name,' ',customer.last_name) as 'Customer Name',inr_tbl.paid_most as 'Paid Amount' from customer inner join (select customer_id, max(amount) as 'paid_most' from payment group by customer_id order by paid_most desc limit 10) as inr_tbl on customer.customer_id = inr_tbl.customer_id;
+
+15. Show the films that have not been rented yet from the "film" and "rental" tables.
+->  Confused about rental, film, and inventory table and there relations
