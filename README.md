@@ -1,5 +1,6 @@
 # MYSQL-Practice-Question
-MySQL Practice with Sakila Database  Welcome to the MySQL Practice repository! This collection of SQL queries is designed to help you sharpen your MySQL skills using the Sakila sample database.
+  Welcome to the MySQL Practice repository! This compilation of SQL queries is crafted to enhance your MySQL proficiency using the Sakila sample database.
+  After composing your queries, further practice is encouraged. Validate the correctness of your query in the answers file and assess its accuracy. If you employ a distinct approach, kindly append your approach below, including your name or GitHub ID. In case I have made any errors, kindly mark them. Thank you.
 
 ## How to Use:
 
