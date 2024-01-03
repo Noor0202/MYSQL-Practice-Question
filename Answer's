@@ -48,3 +48,128 @@
 
 15. Show the films that have not been rented yet from the "film" and "rental" tables.
 ->  Confused about rental, film, and inventory table and there relations
+
+
+
+Basic Stored Procedure Questions:
+01. Create a stored procedure named GetFilmDetails that takes a film ID as input and returns details about that film.
+
+->	delimiter //
+		create procedure if not exists GetFilmDetails(IN id_film smallint unsigned)
+		begin
+			select * from film where film_id = id_film;
+		end //
+	delimiter;
+
+	-- To use the above procedure, call the procedure as follows:
+	-- Example:
+
+	CALL GetFilmDetails(enter_film_id_here);
+
+
+02. Write a stored procedure named GetCustomerRentals that accepts a customer ID as a parameter and displays all rentals for that customer.
+
+->  	delimiter //
+		create procedure if not exists GetCustomerRentals(IN id_customer smallint unsigned)
+		begin
+			select rental.* from customer inner join rental on customer.customer_id = rental.customer_id where customer.customer_id = id_customer;
+		end //
+	delimiter;
+
+	-- To use the above procedure, call the procedure as follows:
+	-- Example:
+
+	CALL GetCustomerRentals(enter_customer_id_here);
+
+
+03. Create a stored procedure named UpdateFilmTitle that updates the title of a film based on the film ID provided as an input parameter.
+
+->    	delimiter //
+		create procedure if not exists UpdateFilmTitle(IN id_film smallint unsigned)
+		begin
+			declare film_exists int;
+			select count(*) into film_exists from film where film_id = id_film;
+
+			if film_exists > 0 then
+				update film set title = concat('New Title for id - ',id_film) where film_id = id_film;
+				select 'Film Title is Updated' as Message;
+				select title as 'New Title' from film where film_id = id_film;
+			else
+				select 'ERROR : Film ID Not Found !' as Message;
+			end if;
+		end //
+	delimiter;
+
+	-- To use the above procedure, call the procedure as follows:
+	-- Example:
+
+	CALL UpdateFilmTitle(enter_film_id_here);
+
+
+04. Write a stored procedure named GetAvailableFilms that lists all films available for rent.
+
+->  	delimiter //
+		create procedure if not exists GetAvailableFilms()
+		begin
+			select film_id, title from film where film_id not in (select inventory.film_id from rental inner join inventory on rental.inventory_id = inventory.inventory_id);
+		end //
+	delimiter;
+
+	-- To use the above procedure, call the procedure as follows:
+	-- Example:
+
+	CALL GetAvailableFilms();
+
+
+05. Design a stored procedure named GetCustomerBalance that calculates and returns the total balance for a given customer ID.
+
+->  	delimiter //
+		create procedure if not exists GetCustomerBalance(IN id_customer smallint unsigned)
+		begin
+			select sum(amount) as 'Total Balance' from payment group by customer_id having customer_id = id_customer;
+		end //
+	delimiter; 
+
+Intermediate Stored Procedure Questions:
+
+01. Develop a stored procedure named RentFilm that takes customer ID and film ID as input parameters and handles the rental transaction.
+
+-> 	delimiter //
+		create procedure if not exists RentFilm(IN id_customer smallint unsigned, IN id_film smallint unsigned)
+		begin
+			declare checked int;
+			declare id_store int;			
+			declare id_inv int;
+			declare id_staff int;
+
+			select inventory.inventory_id into checked from inventory inner join rental on inventory.inventory_id = rental.inventory_id where inventory.film_id = id_film and rental.customer_id;
+			
+			if checked is null then
+
+				select store.store_id into id_store from customer inner join store on customer.store_id = store.store_id where customer.customer_id = id_customer;
+
+				insert into inventory(film_id,store_id,last_update)
+				values(id_film,id_store,now());
+
+				select inventory_id into id_inv from inventory where film_id = id_film;
+
+				select staff_id into id_staff from staff where store_id = id_store;
+
+				insert into rental(rental_date,inventory_id,customer_id,return_date,staff_id,last_update)
+				values(now(),id_inv,id_customer,now() + interval 10 day,id_staff,now() + interval 2 day);
+
+				if (select inventory.inventory_id from inventory inner join rental on inventory.inventory_id = rental.inventory_id where inventory.film_id = id_film) is not null then
+					select 'New Rental Info Inserted Successfully' as Message;
+				else
+					select 'Some Problem in Insert Query' as Message;
+				end if;
+			else
+				select concat('film of ',id_film,' already rented by customer ',id_customer) as Message;
+			end if;
+		end //
+	delimiter;
+
+	-- To use the above procedure, call the procedure as follows:
+	-- Example:
+
+	CALL RentFilm(enter_customer_id_here, enter_film_id_here);
