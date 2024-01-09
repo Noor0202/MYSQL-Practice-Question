@@ -173,3 +173,58 @@ Intermediate Stored Procedure Questions:
 	-- Example:
 
 	CALL RentFilm(enter_customer_id_here, enter_film_id_here);
+
+-- 03. Write a stored procedure named CalculateLateFees that calculates and UPDATEs late fees for overdue rentals.
+
+	-- there are zero entry of overdue rental so let first make some user which pay after return date
+
+	UPDATE payment SET payment_date = DATE_ADD(payment_date, INTERVAL 5 MONTH) WHERE rental_id % 2 = 0;
+
+	DELIMITER //
+
+		CREATE PROCEDURE CalculateLateFees()
+		BEGIN
+			DECLARE is_done TINYINT UNSIGNED DEFAULT 0;
+			DECLARE lf INT UNSIGNED;
+			DECLARE bigDate DATE;
+			DECLARE smallDate DATE;
+			DECLARE id_rental INT UNSIGNED;
+			DECLARE cal_diff CURSOR FOR SELECT rental.rental_id, payment.payment_date, rental.return_date FROM rental INNER JOIN payment ON rental.rental_id = payment.rental_id WHERE payment.payment_date > rental.return_date;
+
+			DECLARE CONTINUE HANDLER FOR NOT FOUND SET is_done = 1;
+
+			IF (SELECT COUNT(*) FROM rental INNER JOIN payment ON rental.rental_id = payment.rental_id WHERE payment.payment_date > rental.return_date) > 0 THEN 
+		
+				IF NOT EXISTS ( SELECT * FROM information_schema.columns WHERE table_name = 'rental' AND column_name = 'Late_Fee') THEN
+		
+					ALTER TABLE rental ADD COLUMN Late_Fee INT DEFAULT 0;
+				END IF;
+
+				OPEN cal_diff;
+
+					my_loop: LOOP
+		
+						FETCH cal_diff INTO id_rental,bigDate,smallDate;
+
+						IF is_done = 1 THEN -- No more rows
+
+							LEAVE my_loop;
+						END IF;
+
+						SET lf = DATEDIFF(bigDate, smallDate) * 2;
+						UPDATE rental SET Late_Fee = lf WHERE rental_id = id_rental;
+					END LOOP;
+				CLOSE cal_diff;
+
+				SELECT "Data Updated Successfully" as Message;
+			
+			ELSE
+			
+				SELECT "There is Zero Overdue Users" as Message;
+			END IF;
+
+		END
+	
+	// DELIMITER;
+
+	CALL CalculateLateFees();
