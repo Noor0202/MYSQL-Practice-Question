@@ -228,3 +228,27 @@ Intermediate Stored Procedure Questions:
 	// DELIMITER;
 
 	CALL CalculateLateFees();
+
+-- 04. Design a stored procedure named GetFilmInventory that displays the current inventory status of a specIFic film.
+
+	DELIMITER //
+	
+		CREATE PROCEDURE GetFilmInventory(IN Film_Name VARCHAR(100))
+		BEGIN
+			SELECT inventory.*,film.title FROM inventory INNER JOIN film ON inventory.film_id = film.film_id where film.title = Film_Name;
+		END //
+	DELIMITER ; 
+
+	CALL GetFilmInventory(enter_film_name_here);
+
+-- 05. Develop a stored procedure named GetCustomerHistory that provides a summary of a customer's rental history.
+
+	DELIMITER //
+	
+		CREATE PROCEDURE GetCustomerHistory(IN Cust_Name varchar(20))
+		BEGIN
+			SELECT customer_list.name,rental.* FROM customer_list inner join rental on customer_list.ID = rental.customer_id where customer_list.name = Cust_Name;
+		END //
+	DELIMITER ;	 
+
+	CALL GetCustomerHistory(enter_customer_full_name_here);
