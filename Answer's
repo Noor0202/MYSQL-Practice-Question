@@ -270,6 +270,315 @@ Intermediate Stored Procedure Questions:
 ->  select pay.customer_id, cust.name as Customer_Name,sum(pay.amount) as Total_Amount,
     case when sum(pay.amount) < 100 then "Low Value"
          when ((sum(pay.amount) >= 100) and (sum(pay.amount) < 150)) then "Medium Value"
+
+
+1. **Customer Segment Analysis:**
+   Write a query to categorize customers into segments based on their total rental amount. Use the `CASE` statement to assign customers to segments such as "High Value," "Medium Value," and "Low Value" based on their rental spending.
+
+->  select pay.customer_id, cust.name as Customer_Name,sum(pay.amount) as Total_Amount,
+    case when sum(pay.amount) < 100 then "Low Value"
+         when ((sum(pay.amount) >= 100) and (sum(pay.amount) < 150)) then "Medium Value"
+         else "High Value"
+    end as Segment
+    from payment pay inner join customer_list cust on pay.customer_id = cust.ID
+    group by pay.customer_id
+    order by
+    	case when Segment = 'Low Value' then 1
+    	     when Segment = 'Medium Value' then 2
+    	     else 3
+    	end;
+
+2. **Film Inventory Status:**
+   Develop a query to determine the status of film inventory based on the number of available copies. Use the `CASE` statement to categorize films as "Available," "Low Stock," or "Out of Stock" based on the quantity of available copies in the inventory.
+
+->  select film_id, total_count_in_inventory, available_count,
+    case when available_count > 0 then 'Available'
+         when (available_count > 0 and available_count < 3) then 'Low Stock'
+         else 'Out of Stock'
+    end as inventory_status
+    from (select inventory.film_id, count(distinct inventory.inventory_id) as total_count_in_inventory, (count(distinct inventory.inventory_id) - count(distinct rental.inventory_id)) as available_count
+          from inventory left join rental on inventory.inventory_id = rental.inventory_id
+    group by inventory.film_id) as availability_summary;
+
+3. **Late Return Penalty Calculation:**
+   Create a query to calculate the late return penalty for each rental transaction. Use the `CASE` statement to determine if a rental is overdue and calculate the penalty based on the number of days overdue.
+->	select rental_id, rental_date, return_date,
+	case when return_date is null then 'rental not returned yet'
+	     when return_date > rental_date + interval 3 day then concat('late by ', datediff(return_date, rental_date + interval 3 day), ' days. penalty: $', datediff(return_date, rental_date + interval 3 day) * late_fee)
+	     else 'no late return penalty'
+	end as penalty
+	from rental
+	limit 50;
+
+4. **Customer Renting Behavior Analysis:**
+   Write a query to analyze the renting behavior of customers based on the genres of films they rent. Use the `CASE` statement to categorize customers into segments such as "Action Lovers," "Romantic Enthusiasts," "Comedy Fans," etc., based on the genres of films they rent most frequently.
+
+->  SELECT Customer_ID, Customer_Name,
+    CASE WHEN Family_count >= Adventure_count AND Family_count >= Other_count THEN 'Family-oriented customers'
+         WHEN Adventure_count >= Family_count AND Adventure_count >= Other_count THEN 'Adventure seekers and enthusiasts'
+         ELSE 'Intellectual and culturally inclined customers'
+    END AS Genre_Segments
+    FROM (SELECT r.customer_id AS Customer_ID, cl.name AS Customer_Name,
+          SUM(CASE WHEN fc.category_id IN (2, 3, 4, 5, 7, 8) THEN 1
+                   ELSE 0
+              END) AS Family_count,
+          SUM(CASE WHEN fc.category_id IN (1, 6, 11, 13, 14, 15, 16) THEN 1
+                   ELSE 0
+              END) AS Adventure_count,
+          COUNT(*) - SUM(CASE WHEN fc.category_id IN (2, 3, 4, 5, 7, 8, 1, 6, 11, 13, 14, 15, 16) THEN 1
+                              ELSE 0
+                         END) AS Other_count
+          FROM rental r INNER JOIN inventory i ON r.inventory_id = i.inventory_id
+			INNER JOIN film_category fc ON i.film_id = fc.film_id
+			INNER JOIN customer_list cl ON r.customer_id = cl.ID
+    GROUP BY Customer_ID, Customer_Name) AS genre_counts
+    ORDER BY Customer_ID;
+
+5. **Film Rental Trends:**
+   Develop a query to identify the trend of film rentals over time. Use the `CASE` statement to categorize rentals into time periods (e.g., "Morning," "Afternoon," "Evening," "Night") and analyze the distribution of rentals throughout the day.
+
+->  	select f.film_id, r.customer_id, r.rental_date,
+	case when time(r.rental_date) >= '05:00:00' and time(r.rental_date) < '12:00:00' then 'Morning'
+	     when time(r.rental_date) >= '12:00:00' and time(r.rental_date) < '16:00:00' then 'Afternoon'
+	     when time(r.rental_date) >= '16:00:00' and time(r.rental_date) < '21:00:00' then 'Evening'
+	     else 'Night'
+	end as Time_Schedule
+	from rental r inner join inventory i on r.inventory_id = i.inventory_id
+		      inner join film f on i.film_id = f.film_id;
+
+6. **Customer Loyalty Program Eligibility:**
+   Create a query to determine the eligibility of customers for a loyalty program based on their rental history. Use the `CASE` statement to evaluate criteria such as the number of rentals, total spending, and frequency of rentals to determine eligibility.
+
+->	SELECT
+    		rent.customer_id,
+    		COUNT(rent.customer_id) AS total_rentals,
+    		SUM(pay.amount) AS total_spending,
+    		DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) AS total_days_rented,
+    		COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) AS frequency_of_rental_per_week,
+    	CASE
+        	WHEN COUNT(rent.customer_id) >= 30 AND SUM(pay.amount) >= 150 AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 2 THEN 'Platinum'
+        	WHEN COUNT(rent.customer_id) >= 20 AND (SUM(pay.amount) >= 100 AND SUM(pay.amount) < 150) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 1 THEN 'Gold'
+        	WHEN COUNT(rent.customer_id) >= 10 AND (SUM(pay.amount) >= 50 AND SUM(pay.amount) < 100) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 0 THEN 'Silver'
+        	ELSE 'Regular'
+    	END AS loyalty_program_status
+	FROM
+    		rental rent inner join payment pay on rent.rental_id = pay.rental_id
+	GROUP BY
+    		rent.customer_id
+	ORDER BY
+		CASE 
+			WHEN loyalty_program_status = "Platinum" then 1
+			WHEN loyalty_program_status = "Gold" then 2
+			WHEN loyalty_program_status = "Silver" then 3
+			ELSE 4
+		END,
+		total_rentals desc,
+		total_spending desc,
+		frequency_of_rental_per_week desc;
+
+stored procedure tasks based on the Sakila database:
+
+**Customer Loyalty Program Eligibility Procedure:**	
+10. Write a stored procedure named CustomerLoyaltyProgramEligibility that assesses the eligibility of customers for a loyalty program based on their rental history. The procedure should accept a customer ID (cust_id) as input and return a result set with the customer's ID, total number of rentals, total spending, total days rented, frequency of rental per week, and loyalty program status.
+
+->	
+	DELIMITER //
+	CREATE PROCEDURE CustomerLoyaltyProgramEligibility(
+		IN cust_id smallint unsigned,
+		OUT total_rentals INT,
+    		OUT total_spending DECIMAL(10, 2),
+    		OUT total_days_rented INT,
+    		OUT frequency_of_rental_per_week DECIMAL(10, 4),
+    		OUT loyalty_program_status VARCHAR(20))
+	BEGIN
+	
+		SELECT
+	    		COUNT(rent.customer_id) AS total_rentals,
+	    		SUM(pay.amount) AS total_spending,
+	    		DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) AS total_days_rented,
+	    		COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) AS frequency_of_rental_per_week,
+	    	CASE
+	        	WHEN COUNT(rent.customer_id) >= 30 AND SUM(pay.amount) >= 150 AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 2 THEN 'Platinum'
+	        	WHEN COUNT(rent.customer_id) >= 20 AND (SUM(pay.amount) >= 100 AND SUM(pay.amount) < 150) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 1 THEN 'Gold'
+	        	WHEN COUNT(rent.customer_id) >= 10 AND (SUM(pay.amount) >= 50 AND SUM(pay.amount) < 100) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 0 THEN 'Silver'
+	        	ELSE 'Regular'
+	    	END 
+		INTO
+        		total_rentals,
+        		total_spending,
+        		total_days_rented,
+        		frequency_of_rental_per_week,
+        		loyalty_program_status
+		FROM
+	    		rental rent inner join payment pay on rent.rental_id = pay.rental_id
+		WHERE 	
+			rent.customer_id = cust_id
+		GROUP BY
+	    		rent.customer_id;
+	END //
+	DELIMITER ;
+	
+11. **Film Recommendation Procedure:**
+   Write a stored procedure named `FilmRecommendation` that recommends films to a specific customer based on their past rental history and preferences. Allow parameters for the customer ID and the number of recommendations to return, and return a result set with recommended film titles.
+	
+->	DELIMITER //
+		CREATE PROCEDURE FilmRecommendation(IN cust_ID smallint unsigned, IN no_rec smallint unsigned)
+		BEGIN
+		    DECLARE cat1, cat2, cat3 VARCHAR(20);
+		
+		    -- Selecting the top three film categories for the specified customer
+		    WITH RankedCategories AS (
+		        SELECT
+		            r.customer_id,
+		            fl.category,
+		            COUNT(fl.category) AS category_count,
+		            ROW_NUMBER() OVER (PARTITION BY r.customer_id ORDER BY COUNT(fl.category) DESC) AS category_rank
+		        FROM
+		            film_list fl
+		        INNER JOIN
+		            inventory i ON fl.FID = i.film_id
+		        INNER JOIN
+		            rental r ON i.inventory_id = r.inventory_id
+		        WHERE
+		            r.customer_id = cust_ID
+		        GROUP BY
+		            r.customer_id,
+		            fl.category
+		    )
+		    SELECT
+		        MAX(CASE WHEN category_rank = 1 THEN category END),
+		        MAX(CASE WHEN category_rank = 2 THEN category END),
+		        MAX(CASE WHEN category_rank = 3 THEN category END)
+		    INTO
+		        cat1, cat2, cat3
+		    FROM
+		        RankedCategories;
+		
+		    -- Selecting recommended films based on the top three categories
+		    SELECT
+		        f.film_id,
+		        f.title,
+		        fl.category
+		    FROM
+		        film f
+		    INNER JOIN
+		        film_list fl ON f.film_id = fl.FID
+		    INNER JOIN
+		        language l ON f.language_id = l.language_id
+		    WHERE
+		        fl.category IN (cat1, cat2, cat3) -- Filtering films by top three categories
+		    AND
+		        f.film_id NOT IN (
+		            SELECT
+			                DISTINCT(i.film_id)
+        		    FROM
+        		        rental r
+        		    INNER JOIN
+        		        inventory i ON r.inventory_id = i.inventory_id
+        		    WHERE
+        		        r.customer_id = cust_ID
+        		) -- Excluding films already rented by the customer
+		    LIMIT no_rec;
+		END //
+	DELIMITER ;	
+
+trigger tasks based on the Sakila database:
+
+21. **Late Return Penalty Trigger:**
+   Create a trigger named `LateReturnPenalty` that automatically calculates and updates late fees for overdue rentals whenever a new payment is inserted into the `payment` table. The trigger should update the late fee column in the `rental` table based on the difference between the payment date and the return date.
+	
+	delimiter //
+	CREATE TRIGGER LateReturnPenalty AFTER INSERT ON payment 
+	FOR EACH ROW
+	BEGIN
+		DECLARE date_diff INT;
+	    	DECLARE penalty INT DEFAULT 0;
+	    
+	    	SET date_diff = DATEDIFF((SELECT return_date FROM rental WHERE rental_id = NEW.rental_id), NEW.payment_date);
+	
+	    	IF date_diff < 0 THEN	
+	       		SET penalty = ((-1 * date_diff) * 10) + NEW.amount;
+	    	END IF;
+
+	    	UPDATE rental SET late_fee = penalty WHERE rental_id = NEW.rental_id;
+	END //
+	delimiter;
+	
+22. **Customer Loyalty Program Eligibility Trigger:**
+   Develop a trigger named `CheckLoyaltyProgramEligibility` that automatically determines the eligibility of customers for a loyalty program whenever
+   a new rental is inserted into the `rental` table. The trigger should check the customer's rental history and update a loyalty program status column in the `customer` table accordingly.
+	GOT ERROR PLEASE MARK MY MISTAKE
+   
+	delimiter // cause to solve above question we need to call procedure named - CustomerLoyaltyProgramEligibility which need payment table also so after inserting new rental whatever the updation are needed that also update in payment table with new rental_id;
+		create procedure AddPayment(in rent_id int unsinged,in cust_id int unsinged)
+		begin
+			insert into payment(customer_id,staff_id,rental_id,amount,payment_date,last_update) values(cust_id,1,rent_id,10,now(),now());
+		end //	
+	delimiter ;
+
+->	DELIMITER //
+	CREATE TRIGGER CheckLoyaltyProgramEligibility AFTER INSERT ON rental
+	FOR EACH ROW
+	BEGIN
+	    	DECLARE column_exists INT; -- Check if the Loyalty_Program column exists
+
+    		DECLARE total_rentals INT;
+    		DECLARE total_spending DECIMAL(10, 2);
+    		DECLARE total_days_rented INT;
+    			DECLARE frequency_of_rental_per_week DECIMAL(10, 4);
+    		DECLARE loyalty_program_status VARCHAR(20);
+		
+    		DECLARE done INT DEFAULT 0;
+    		DECLARE customer_id_cur INT;
+
+    		-- Add payment for the new rental
+    		CALL AddPayment(new.rental_id, new.customer_id);
+
+    		-- Check if Loyalty_Program column exists in the customer table
+    		SELECT COUNT(*)
+    		INTO column_exists
+    		FROM information_schema.columns
+    		WHERE table_schema = 'sakila' AND table_name = 'customer' AND column_name = 'Loyalty_Program';
+
+    		-- If Loyalty_Program column doesn't exist, add it with default value 'Regular'
+    		IF column_exists = 0 THEN
+    		    ALTER TABLE customer
+    		    ADD COLUMN Loyalty_Program VARCHAR(20) DEFAULT 'Regular';
+    		END IF;
+		
+    		-- Iterate over customer IDs and update their loyalty program status
+    		DECLARE customer_cur CURSOR FOR SELECT customer_id FROM customer;
+    		DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+		
+		OPEN customer_cur;
+		read_loop: LOOP
+		    FETCH customer_cur INTO customer_id_cur;
+		    IF done THEN
+		        LEAVE read_loop;
+		    END IF;
+		
+		    CALL CustomerLoyaltyProgramEligibility(new.customer_id, @total_rentals, @total_spending, @total_days_rented, @frequency_of_rental_per_week, @loyalty_program_status);
+		    UPDATE customer SET Loyalty_Program = @loyalty_program_status WHERE customer_id = customer_id_cur;
+		END LOOP;
+		CLOSE customer_cur;
+		
+		-- Update loyalty program status for the new customer
+		CALL CustomerLoyaltyProgramEligibility(new.customer_id, @total_rentals, @total_spending, @total_days_rented, @frequency_of_rental_per_week, @loyalty_program_status);
+		UPDATE customer SET Loyalty_Program = @loyalty_program_status WHERE customer_id = new.customer_id;
+	END //
+	DELIMITER ;
+		
+tasks based on the Sakila database that involve views, locks, indexes, and ACID properties:
+
+51. **Complex View Creation:**
+   Create a view named `CustomerRentalsView` that combines data from the `customer`, `rental`, and `payment` tables to provide a
+   comprehensive view of each customer's rental history, including rental details and payment information.
+
+->
+	CREATE VIEW CustomerRentalsView AS SELECT c.customer_id as customer_identification, r.rental_id, r.rental_date, r.inventory_id, r.return_date, r.staff_id, r.last_update as rental_last_update, r.Late_Fee, p.payment_id, p.amount, p.payment_date, p.last_update as payment_last_update
+	FROM customer c
+		INNER JOIN rental r ON c.customer_id = r.customer_id
+		INNER JOIN payment p ON r.rental_id = p.rental_id;
          else "High Value"
     end as Segment
     from payment pay inner join customer_list cust on pay.customer_id = cust.ID
