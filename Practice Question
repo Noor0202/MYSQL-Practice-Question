@@ -34,3 +34,488 @@
    Develop a query to identify the trend of film rentals over time. Use the `CASE` statement to categorize rentals into time periods (e.g., "Morning," "Afternoon," "Evening," "Night") and analyze the distribution of rentals throughout the day.
 30. **Customer Loyalty Program Eligibility:**
    Create a query to determine the eligibility of customers for a loyalty program based on their rental history. Use the `CASE` statement to evaluate criteria such as the number of rentals, total spending, and frequency of rentals to determine eligibility.
+
+
+1. **Customer Segment Analysis:**
+   Write a query to categorize customers into segments based on their total rental amount. Use the `CASE` statement to assign customers to segments such as "High Value," "Medium Value," and "Low Value" based on their rental spending.
+
+->  select pay.customer_id, cust.name as Customer_Name,sum(pay.amount) as Total_Amount,
+    case when sum(pay.amount) < 100 then "Low Value"
+         when ((sum(pay.amount) >= 100) and (sum(pay.amount) < 150)) then "Medium Value"
+         else "High Value"
+    end as Segment
+    from payment pay inner join customer_list cust on pay.customer_id = cust.ID
+    group by pay.customer_id
+    order by
+    	case when Segment = 'Low Value' then 1
+    	     when Segment = 'Medium Value' then 2
+    	     else 3
+    	end;
+
+2. **Film Inventory Status:**
+   Develop a query to determine the status of film inventory based on the number of available copies. Use the `CASE` statement to categorize films as "Available," "Low Stock," or "Out of Stock" based on the quantity of available copies in the inventory.
+
+->  select film_id, total_count_in_inventory, available_count,
+    case when available_count > 0 then 'Available'
+         when (available_count > 0 and available_count < 3) then 'Low Stock'
+         else 'Out of Stock'
+    end as inventory_status
+    from (select inventory.film_id, count(distinct inventory.inventory_id) as total_count_in_inventory, (count(distinct inventory.inventory_id) - count(distinct rental.inventory_id)) as available_count
+          from inventory left join rental on inventory.inventory_id = rental.inventory_id
+    group by inventory.film_id) as availability_summary;
+
+3. **Late Return Penalty Calculation:**
+   Create a query to calculate the late return penalty for each rental transaction. Use the `CASE` statement to determine if a rental is overdue and calculate the penalty based on the number of days overdue.
+->	select rental_id, rental_date, return_date,
+	case when return_date is null then 'rental not returned yet'
+	     when return_date > rental_date + interval 3 day then concat('late by ', datediff(return_date, rental_date + interval 3 day), ' days. penalty: $', datediff(return_date, rental_date + interval 3 day) * late_fee)
+	     else 'no late return penalty'
+	end as penalty
+	from rental
+	limit 50;
+
+4. **Customer Renting Behavior Analysis:**
+   Write a query to analyze the renting behavior of customers based on the genres of films they rent. Use the `CASE` statement to categorize customers into segments such as "Action Lovers," "Romantic Enthusiasts," "Comedy Fans," etc., based on the genres of films they rent most frequently.
+
+->  SELECT Customer_ID, Customer_Name,
+    CASE WHEN Family_count >= Adventure_count AND Family_count >= Other_count THEN 'Family-oriented customers'
+         WHEN Adventure_count >= Family_count AND Adventure_count >= Other_count THEN 'Adventure seekers and enthusiasts'
+         ELSE 'Intellectual and culturally inclined customers'
+    END AS Genre_Segments
+    FROM (SELECT r.customer_id AS Customer_ID, cl.name AS Customer_Name,
+          SUM(CASE WHEN fc.category_id IN (2, 3, 4, 5, 7, 8) THEN 1
+                   ELSE 0
+              END) AS Family_count,
+          SUM(CASE WHEN fc.category_id IN (1, 6, 11, 13, 14, 15, 16) THEN 1
+                   ELSE 0
+              END) AS Adventure_count,
+          COUNT(*) - SUM(CASE WHEN fc.category_id IN (2, 3, 4, 5, 7, 8, 1, 6, 11, 13, 14, 15, 16) THEN 1
+                              ELSE 0
+                         END) AS Other_count
+          FROM rental r INNER JOIN inventory i ON r.inventory_id = i.inventory_id
+			INNER JOIN film_category fc ON i.film_id = fc.film_id
+			INNER JOIN customer_list cl ON r.customer_id = cl.ID
+    GROUP BY Customer_ID, Customer_Name) AS genre_counts
+    ORDER BY Customer_ID;
+
+5. **Film Rental Trends:**
+   Develop a query to identify the trend of film rentals over time. Use the `CASE` statement to categorize rentals into time periods (e.g., "Morning," "Afternoon," "Evening," "Night") and analyze the distribution of rentals throughout the day.
+
+->  	select f.film_id, r.customer_id, r.rental_date,
+	case when time(r.rental_date) >= '05:00:00' and time(r.rental_date) < '12:00:00' then 'Morning'
+	     when time(r.rental_date) >= '12:00:00' and time(r.rental_date) < '16:00:00' then 'Afternoon'
+	     when time(r.rental_date) >= '16:00:00' and time(r.rental_date) < '21:00:00' then 'Evening'
+	     else 'Night'
+	end as Time_Schedule
+	from rental r inner join inventory i on r.inventory_id = i.inventory_id
+		      inner join film f on i.film_id = f.film_id;
+
+6. **Customer Loyalty Program Eligibility:**
+   Create a query to determine the eligibility of customers for a loyalty program based on their rental history. Use the `CASE` statement to evaluate criteria such as the number of rentals, total spending, and frequency of rentals to determine eligibility.
+
+->	SELECT
+    		rent.customer_id,
+    		COUNT(rent.customer_id) AS total_rentals,
+    		SUM(pay.amount) AS total_spending,
+    		DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) AS total_days_rented,
+    		COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) AS frequency_of_rental_per_week,
+    	CASE
+        	WHEN COUNT(rent.customer_id) >= 30 AND SUM(pay.amount) >= 150 AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 2 THEN 'Platinum'
+        	WHEN COUNT(rent.customer_id) >= 20 AND (SUM(pay.amount) >= 100 AND SUM(pay.amount) < 150) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 1 THEN 'Gold'
+        	WHEN COUNT(rent.customer_id) >= 10 AND (SUM(pay.amount) >= 50 AND SUM(pay.amount) < 100) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 0 THEN 'Silver'
+        	ELSE 'Regular'
+    	END AS loyalty_program_status
+	FROM
+    		rental rent inner join payment pay on rent.rental_id = pay.rental_id
+	GROUP BY
+    		rent.customer_id
+	ORDER BY
+		CASE 
+			WHEN loyalty_program_status = "Platinum" then 1
+			WHEN loyalty_program_status = "Gold" then 2
+			WHEN loyalty_program_status = "Silver" then 3
+			ELSE 4
+		END,
+		total_rentals desc,
+		total_spending desc,
+		frequency_of_rental_per_week desc;
+
+stored procedure tasks based on the Sakila database:
+
+**Customer Loyalty Program Eligibility Procedure:**	
+10. Write a stored procedure named CustomerLoyaltyProgramEligibility that assesses the eligibility of customers for a loyalty program based on their rental history. The procedure should accept a customer ID (cust_id) as input and return a result set with the customer's ID, total number of rentals, total spending, total days rented, frequency of rental per week, and loyalty program status.
+
+->	
+	DELIMITER //
+	CREATE PROCEDURE CustomerLoyaltyProgramEligibility(
+		IN cust_id smallint unsigned,
+		OUT total_rentals INT,
+    		OUT total_spending DECIMAL(10, 2),
+    		OUT total_days_rented INT,
+    		OUT frequency_of_rental_per_week DECIMAL(10, 4),
+    		OUT loyalty_program_status VARCHAR(20))
+	BEGIN
+	
+		SELECT
+	    		COUNT(rent.customer_id) AS total_rentals,
+	    		SUM(pay.amount) AS total_spending,
+	    		DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) AS total_days_rented,
+	    		COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) AS frequency_of_rental_per_week,
+	    	CASE
+	        	WHEN COUNT(rent.customer_id) >= 30 AND SUM(pay.amount) >= 150 AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 2 THEN 'Platinum'
+	        	WHEN COUNT(rent.customer_id) >= 20 AND (SUM(pay.amount) >= 100 AND SUM(pay.amount) < 150) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 1 THEN 'Gold'
+	        	WHEN COUNT(rent.customer_id) >= 10 AND (SUM(pay.amount) >= 50 AND SUM(pay.amount) < 100) AND COUNT(rent.customer_id) / (DATEDIFF(MAX(rent.rental_date), MIN(rent.rental_date)) / 7) > 0 THEN 'Silver'
+	        	ELSE 'Regular'
+	    	END 
+		INTO
+        		total_rentals,
+        		total_spending,
+        		total_days_rented,
+        		frequency_of_rental_per_week,
+        		loyalty_program_status
+		FROM
+	    		rental rent inner join payment pay on rent.rental_id = pay.rental_id
+		WHERE 	
+			rent.customer_id = cust_id
+		GROUP BY
+	    		rent.customer_id;
+	END //
+	DELIMITER ;
+	
+11. **Film Recommendation Procedure:**
+   Write a stored procedure named `FilmRecommendation` that recommends films to a specific customer based on their past rental history and preferences. Allow parameters for the customer ID and the number of recommendations to return, and return a result set with recommended film titles.
+	
+->	DELIMITER //
+		CREATE PROCEDURE FilmRecommendation(IN cust_ID smallint unsigned, IN no_rec smallint unsigned)
+		BEGIN
+		    DECLARE cat1, cat2, cat3 VARCHAR(20);
+		
+		    -- Selecting the top three film categories for the specified customer
+		    WITH RankedCategories AS (
+		        SELECT
+		            r.customer_id,
+		            fl.category,
+		            COUNT(fl.category) AS category_count,
+		            ROW_NUMBER() OVER (PARTITION BY r.customer_id ORDER BY COUNT(fl.category) DESC) AS category_rank
+		        FROM
+		            film_list fl
+		        INNER JOIN
+		            inventory i ON fl.FID = i.film_id
+		        INNER JOIN
+		            rental r ON i.inventory_id = r.inventory_id
+		        WHERE
+		            r.customer_id = cust_ID
+		        GROUP BY
+		            r.customer_id,
+		            fl.category
+		    )
+		    SELECT
+		        MAX(CASE WHEN category_rank = 1 THEN category END),
+		        MAX(CASE WHEN category_rank = 2 THEN category END),
+		        MAX(CASE WHEN category_rank = 3 THEN category END)
+		    INTO
+		        cat1, cat2, cat3
+		    FROM
+		        RankedCategories;
+		
+		    -- Selecting recommended films based on the top three categories
+		    SELECT
+		        f.film_id,
+		        f.title,
+		        fl.category
+		    FROM
+		        film f
+		    INNER JOIN
+		        film_list fl ON f.film_id = fl.FID
+		    INNER JOIN
+		        language l ON f.language_id = l.language_id
+		    WHERE
+		        fl.category IN (cat1, cat2, cat3) -- Filtering films by top three categories
+		    AND
+		        f.film_id NOT IN (
+		            SELECT
+			                DISTINCT(i.film_id)
+        		    FROM
+        		        rental r
+        		    INNER JOIN
+        		        inventory i ON r.inventory_id = i.inventory_id
+        		    WHERE
+        		        r.customer_id = cust_ID
+        		) -- Excluding films already rented by the customer
+		    LIMIT no_rec;
+		END //
+	DELIMITER ;	
+
+13. **Inventory Replenishment Analysis Procedure:**
+   Create a stored procedure named `InventoryReplenishmentAnalysis` that analyzes inventory replenishment needs based on rental demand and film popularity. The procedure should calculate the quantity of each film to reorder and return a result set with film titles and reorder quantities.
+
+16. **Revenue Optimization Strategy Procedure:**
+   Write a stored procedure named `OptimizeRentalPrices` that optimizes revenue by adjusting rental prices dynamically based on factors such as film popularity, customer demand, and time of rental. Allow parameters for pricing rules and return a result indicating successful price adjustments.
+
+17. **Staff Performance Evaluation Procedure:**
+   Develop a stored procedure named `EvaluateStaffPerformance` that evaluates the performance of staff members based on the number of rentals they handle and customer satisfaction ratings. Use parameters for performance criteria thresholds and return a result set with staff IDs and their corresponding performance ratings.
+
+18. **Customer Renting Behavior Analysis Procedure:**
+   Create a stored procedure named `CustomerRentingBehaviorAnalysis` that analyzes the renting behavior of customers based on the genres of films they rent. Use parameters for the customer ID and return a result set with a breakdown of the customer's rental behavior by genre.
+
+19. **Film Inventory Status Procedure:**
+   Write a stored procedure named `FilmInventoryStatus` that determines the status of film inventory based on the number of available copies. Allow parameters for thresholds defining inventory status levels (e.g., "Low Stock," "Out of Stock") and return a result set with film titles and their corresponding statuses.
+
+20. **Film Rental Trends Procedure:**
+    Develop a stored procedure named `FilmRentalTrends` that identifies trends in film rentals over time. Allow parameters for time intervals (e.g., daily, weekly, monthly) and return a result set with rental counts for each interval.
+
+trigger tasks based on the Sakila database:
+
+21. **Late Return Penalty Trigger:**
+   Create a trigger named `LateReturnPenalty` that automatically calculates and updates late fees for overdue rentals whenever a new payment is inserted into the `payment` table. The trigger should update the late fee column in the `rental` table based on the difference between the payment date and the return date.
+	
+22. **Customer Loyalty Program Eligibility Trigger:**
+   Develop a trigger named `CheckLoyaltyProgramEligibility` that automatically determines the eligibility of customers for a loyalty program whenever a new rental is inserted into the `rental` table. The trigger should check the customer's rental history and update a loyalty program status column in the `customer` table accordingly.
+
+23. **Film Inventory Replenishment Trigger:**
+   Write a trigger named `InventoryReplenishment` that automatically analyzes inventory replenishment needs whenever a new rental is inserted into the `rental` table. The trigger should check the availability of rented films and initiate a reorder process if the inventory falls below a specified threshold.
+
+24. **Customer Renting Behavior Analysis Trigger:**
+   Create a trigger named `CustomerRentingBehaviorAnalysis` that automatically analyzes the renting behavior of customers whenever a new rental is inserted into the `rental` table. The trigger should update a behavioral analysis table with information such as the customer ID, rented film genres, and rental frequency.
+
+25. **Staff Performance Evaluation Trigger:**
+   Develop a trigger named `EvaluateStaffPerformance` that automatically evaluates the performance of staff members whenever a new rental is inserted into the `rental` table. The trigger should calculate performance metrics such as the number of rentals handled by each staff member and update a performance evaluation table accordingly.
+
+26. **Film Recommendation Trigger:**
+   Write a trigger named `FilmRecommendation` that automatically recommends films to customers based on their past rental history whenever a new rental is inserted into the `rental` table. The trigger should analyze the customer's rental preferences and update a recommendation table with suggested films.
+
+27. **Inventory Status Update Trigger:**
+   Create a trigger named `UpdateInventoryStatus` that automatically updates the status of film inventory whenever a new rental is inserted into the `rental` table. The trigger should adjust the availability status of rented films in the `inventory` table based on rental transactions.
+
+28. **Revenue Optimization Strategy Trigger:**
+   Develop a trigger named `OptimizeRentalPrices` that automatically optimizes rental prices based on factors such as film popularity and customer demand whenever a new rental is inserted into the `rental` table. The trigger should adjust rental prices dynamically and update the `payment` table accordingly.
+
+29. **Customer Satisfaction Tracking Trigger:**
+   Write a trigger named `TrackCustomerSatisfaction` that automatically tracks customer satisfaction ratings whenever a new rental is inserted into the `rental` table. The trigger should update a satisfaction tracking table with information such as the customer ID, rental ID, and satisfaction rating.
+
+30. **Film Rental Trend Analysis Trigger:**
+    Create a trigger named `AnalyzeFilmRentalTrends` that automatically analyzes trends in film rentals over time whenever a new rental is inserted into the `rental` table. The trigger should update a rental trend analysis table with information such as the rental date, film ID, and rental count.
+
+tasks based on the Sakila database that involve the use of `CURSORS` to emulate looping behavior:
+
+31. **Late Return Penalty Calculation Using Cursor:**
+   Write a stored procedure named `CalculateLateFeesWithCursor` that calculates late fees for overdue rentals using a cursor to iterate over rental records. The procedure should calculate the late fee for each overdue rental and update the `rental` table accordingly.
+
+32. **Customer Loyalty Program Eligibility Check Using Cursor:**
+   Develop a stored procedure named `CheckLoyaltyProgramEligibilityWithCursor` that checks the eligibility of customers for a loyalty program using a cursor to iterate over customer rental histories. The procedure should analyze each customer's rental history and update their loyalty program status accordingly.
+
+33. **Inventory Replenishment Analysis Using Cursor:**
+   Create a stored procedure named `InventoryReplenishmentAnalysisWithCursor` that analyzes inventory replenishment needs using a cursor to iterate over rented films. The procedure should calculate the quantity of each film to reorder based on rental demand and update the inventory accordingly.
+
+34. **Customer Renting Behavior Analysis Using Cursor:**
+   Develop a stored procedure named `CustomerRentingBehaviorAnalysisWithCursor` that analyzes the renting behavior of customers using a cursor to iterate over rental records. The procedure should categorize customers based on their rental preferences and update a behavioral analysis table accordingly.
+
+35. **Staff Performance Evaluation Using Cursor:**
+   Write a stored procedure named `EvaluateStaffPerformanceWithCursor` that evaluates the performance of staff members using a cursor to iterate over rental records. The procedure should calculate performance metrics for each staff member and update a performance evaluation table accordingly.
+
+36. **Film Recommendation Engine Using Cursor:**
+   Create a stored procedure named `FilmRecommendationWithCursor` that recommends films to customers based on their past rental history using a cursor to iterate over rental records. The procedure should analyze each customer's rental preferences and suggest relevant films.
+
+37. **Inventory Status Update Using Cursor:**
+   Develop a stored procedure named `UpdateInventoryStatusWithCursor` that updates the status of film inventory using a cursor to iterate over rental records. The procedure should adjust the availability status of rented films in the inventory table based on rental transactions.
+
+38. **Revenue Optimization Strategy Using Cursor:**
+   Write a stored procedure named `OptimizeRentalPricesWithCursor` that optimizes rental prices based on factors such as film popularity and customer demand using a cursor to iterate over rental records. The procedure should adjust rental prices dynamically and update the payment table accordingly.
+
+39. **Customer Satisfaction Tracking Using Cursor:**
+   Create a stored procedure named `TrackCustomerSatisfactionWithCursor` that tracks customer satisfaction ratings using a cursor to iterate over rental records. The procedure should update a satisfaction tracking table with information about each rental and its associated satisfaction rating.
+
+40. **Film Rental Trend Analysis Using Cursor:**
+    Develop a stored procedure named `AnalyzeFilmRentalTrendsWithCursor` that analyzes trends in film rentals over time using a cursor to iterate over rental records. The procedure should calculate rental counts for each time period and update a rental trend analysis table accordingly.
+
+tasks based on the Sakila database that involve the use of cursors within stored procedures:
+
+41. **Late Return Penalty Calculation with Cursor:**
+   Write a stored procedure named `CalculateLateFeesCursor` that calculates late fees for overdue rentals by iterating over rental records using a cursor. The procedure should calculate the late fee for each overdue rental and update the `rental` table accordingly.
+
+42. **Customer Loyalty Program Eligibility Check with Cursor:**
+   Develop a stored procedure named `CheckLoyaltyProgramEligibilityCursor` that checks the eligibility of customers for a loyalty program by iterating over customer rental histories using a cursor. The procedure should analyze each customer's rental history and update their loyalty program status accordingly.
+
+43. **Inventory Replenishment Analysis with Cursor:**
+   Create a stored procedure named `InventoryReplenishmentAnalysisCursor` that analyzes inventory replenishment needs by iterating over rented films using a cursor. The procedure should calculate the quantity of each film to reorder based on rental demand and update the inventory accordingly.
+
+44. **Customer Renting Behavior Analysis with Cursor:**
+   Develop a stored procedure named `CustomerRentingBehaviorAnalysisCursor` that analyzes the renting behavior of customers by iterating over rental records using a cursor. The procedure should categorize customers based on their rental preferences and update a behavioral analysis table accordingly.
+
+45. **Staff Performance Evaluation with Cursor:**
+   Write a stored procedure named `EvaluateStaffPerformanceCursor` that evaluates the performance of staff members by iterating over rental records using a cursor. The procedure should calculate performance metrics for each staff member and update a performance evaluation table accordingly.
+
+46. **Film Recommendation Engine with Cursor:**
+   Create a stored procedure named `FilmRecommendationCursor` that recommends films to customers based on their past rental history by iterating over rental records using a cursor. The procedure should analyze each customer's rental preferences and suggest relevant films.
+
+47. **Inventory Status Update with Cursor:**
+   Develop a stored procedure named `UpdateInventoryStatusCursor` that updates the status of film inventory by iterating over rental records using a cursor. The procedure should adjust the availability status of rented films in the inventory table based on rental transactions.
+
+48. **Revenue Optimization Strategy with Cursor:**
+   Write a stored procedure named `OptimizeRentalPricesCursor` that optimizes rental prices based on factors such as film popularity and customer demand by iterating over rental records using a cursor. The procedure should adjust rental prices dynamically and update the payment table accordingly.
+
+49. **Customer Satisfaction Tracking with Cursor:**
+   Create a stored procedure named `TrackCustomerSatisfactionCursor` that tracks customer satisfaction ratings by iterating over rental records using a cursor. The procedure should update a satisfaction tracking table with information about each rental and its associated satisfaction rating.
+
+50. **Film Rental Trend Analysis with Cursor:**
+    Develop a stored procedure named `AnalyzeFilmRentalTrendsWithCursor` that analyzes trends in film rentals over time by iterating over rental records using a cursor. The procedure should calculate rental counts for each time period and update a rental trend analysis table accordingly.
+
+tasks based on the Sakila database that involve views, locks, indexes, and ACID properties:
+
+51. **Complex View Creation:**
+   Create a view named `CustomerRentalsView` that combines data from the `customer`, `rental`, and `payment` tables to provide a comprehensive view of each customer's rental history, including rental details and payment information.
+
+52. **Concurrency Control with Locks:**
+   Implement a locking mechanism to prevent simultaneous updates to the same rental record in the `rental` table. Use either explicit locks (e.g., `SELECT ... FOR UPDATE`) or transaction isolation levels to manage concurrency.
+
+53. **Index Optimization:**
+   Identify performance bottlenecks in the Sakila database and propose a set of indexes to optimize query performance. Consider factors such as query frequency, data distribution, and cardinality to determine which columns should be indexed.
+
+54. **ACID Compliance Analysis:**
+   Evaluate the Sakila database's compliance with the ACID (Atomicity, Consistency, Isolation, Durability) properties. Identify potential areas of concern where transactions may fail to meet ACID requirements and propose solutions to ensure data integrity and consistency.
+
+55. **Materialized View Implementation:**
+   Implement a materialized view named `FilmInventoryView` that aggregates data from the `inventory` table to provide real-time information about the availability of each film in the inventory. Consider using scheduled refreshes to keep the materialized view up to date.
+
+56. **Locking Strategy for Deadlock Prevention:**
+   Design a locking strategy to prevent deadlocks in the Sakila database. Consider using lock escalation, lock timeouts, or deadlock detection algorithms to manage concurrency effectively and minimize the risk of deadlocks.
+
+57. **Indexing Strategy for Full-Text Search:**
+   Develop an indexing strategy to support full-text search queries on the `film` table's `description` column. Consider using full-text indexes or a combination of traditional indexes and text search algorithms to improve search performance.
+
+58. **Isolation Level Selection for Transaction Management:**
+   Evaluate the appropriate isolation level for transactions in the Sakila database based on the application's requirements. Consider factors such as data consistency, concurrency control, and performance when selecting isolation levels (e.g., READ COMMITTED, REPEATABLE READ, SERIALIZABLE).
+
+59. **Indexing Strategy for Range Queries:**
+   Propose an indexing strategy to optimize range queries on date columns in the Sakila database, such as the `rental_date` column in the `rental` table. Consider using composite indexes or partitioning techniques to efficiently retrieve data within specified date ranges.
+
+60. **ACID Compliance Testing and Verification:**
+    Develop a suite of tests to verify the Sakila database's compliance with the ACID properties. Include tests for atomicity (transaction rollback and commit), consistency (data integrity constraints), isolation (concurrency control), and durability (data persistence after system failures).
+
+JOINs, GROUP BY, and HAVING clauses:
+
+61. **Customer Rental Analysis:**
+   Write a query to analyze customers' rental behavior by joining the `customer`, `rental`, and `payment` tables. Group the results by customer ID and calculate the total number of rentals and the average amount paid per rental. Use a HAVING clause to filter out customers with fewer than five rentals.
+
+62. **Film Category Analysis:**
+   Develop a query to analyze the popularity of film categories by joining the `film`, `film_category`, and `rental` tables. Group the results by category and count the number of rentals for each category. Use a HAVING clause to display only categories with more than 50 rentals.
+
+63. **Customer Loyalty Program Eligibility:**
+   Create a query to determine the eligibility of customers for a loyalty program by joining the `customer` and `rental` tables. Group the results by customer ID and calculate the total number of rentals for each customer. Use a HAVING clause to filter out customers with fewer than ten rentals.
+
+64. **Actor Performance Analysis:**
+   Write a query to analyze the performance of actors by joining the `actor`, `film_actor`, and `rental` tables. Group the results by actor ID and count the number of rentals for each actor. Use a HAVING clause to display only actors with more than 100 rentals.
+
+65. **Inventory Replenishment Analysis:**
+   Develop a query to analyze inventory replenishment needs by joining the `inventory` and `rental` tables. Group the results by film ID and calculate the average number of rentals per film. Use a HAVING clause to filter out films with an average rental count lower than five.
+
+66. **Staff Performance Evaluation:**
+   Create a query to evaluate the performance of staff members by joining the `staff` and `rental` tables. Group the results by staff ID and count the number of rentals handled by each staff member. Use a HAVING clause to filter out staff members with fewer than 50 rentals.
+
+67. **Film Revenue Analysis:**
+   Write a query to analyze the revenue generated by films by joining the `film`, `inventory`, and `payment` tables. Group the results by film ID and calculate the total revenue for each film. Use a HAVING clause to display only films with revenue exceeding $1000.
+
+68. **Customer Satisfaction Analysis:**
+   Develop a query to analyze customer satisfaction ratings by joining the `customer`, `rental`, and `payment` tables. Group the results by customer ID and calculate the average satisfaction rating for each customer. Use a HAVING clause to filter out customers with an average rating below 4.0.
+
+69. **Film Duration Analysis:**
+   Create a query to analyze the duration of films by joining the `film` and `rental` tables. Group the results by film ID and calculate the average duration of each film. Use a HAVING clause to filter out films with an average duration exceeding 2 hours.
+
+70. **Language Preference Analysis:**
+    Write a query to analyze customers' language preferences by joining the `customer` and `rental` tables. Group the results by language ID and count the number of rentals in each language. Use a HAVING clause to display only languages with more than 50 rentals.
+
+string manipulation, date functions, and regular expressions:
+
+71. **Customer Email Validation:**
+   Write a query to validate customer email addresses by checking if they follow the standard email format (e.g., example@example.com). Use a regular expression to filter out invalid email addresses from the `customer` table.
+
+72. **Film Title Length Analysis:**
+   Develop a query to analyze the length of film titles by calculating the average title length and the maximum title length. Use string functions to measure the length of film titles in the `film` table.
+
+73. **Customer Name Concatenation:**
+   Create a query to concatenate the first name and last name of customers into a single string, separated by a space. Use string concatenation functions to generate the full names from the `customer` table.
+
+74. **Film Description Analysis:**
+   Write a query to analyze film descriptions by counting the number of words in each description. Use string manipulation functions to split the descriptions into words and calculate the word count in the `film` table.
+
+75. **Customer Address Formatting:**
+   Develop a query to format customer addresses properly by capitalizing the first letter of each word in the address. Use string manipulation functions to capitalize the address components (e.g., street, city, country) in the `address` table.
+
+76. **Film Release Year Extraction:**
+   Create a query to extract the release year from the `release_year` column in the `film` table. Use date functions or regular expressions to parse the release year from the film titles.
+
+77. **Customer Registration Date Analysis:**
+   Write a query to analyze customer registration dates by calculating the average registration date and the earliest registration date. Use date functions to process the registration dates in the `customer` table.
+
+78. **Film Rating Categorization:**
+   Develop a query to categorize films based on their ratings (e.g., G, PG, PG-13, R). Use regular expressions to match the rating patterns in the `rating` column of the `film` table.
+
+79. **Customer Last Rental Date Analysis:**
+   Create a query to analyze the last rental dates of customers by calculating the maximum rental date for each customer. Use date functions to identify the latest rental dates in the `rental` table.
+
+80. **Film Language Code Extraction:**
+    Write a query to extract the language codes from the `language` column in the `language` table. Use regular expressions to parse the language codes from the language names.
+
+aggregate functions and privileges:
+
+81. **Customer Rental Summary:**
+   Write a query to generate a summary of rentals for each customer, including the total number of rentals and the total amount paid. Use aggregate functions to calculate the totals from the `rental` and `payment` tables.
+
+82. **Film Category Revenue Analysis:**
+   Develop a query to analyze the revenue generated by each film category, including the total revenue and the average revenue per film. Use aggregate functions to calculate the revenue from the `payment`, `film`, and `film_category` tables.
+
+83. **Staff Performance Evaluation:**
+   Create a query to evaluate the performance of staff members based on the number of rentals they handle. Calculate the total number of rentals handled by each staff member using aggregate functions on the `rental` table.
+
+84. **Inventory Replenishment Analysis:**
+   Write a query to analyze inventory replenishment needs by calculating the average number of rentals per film. Use aggregate functions to calculate the average rental count from the `inventory` and `rental` tables.
+
+85. **Customer Loyalty Program Eligibility:**
+   Develop a query to determine the eligibility of customers for a loyalty program based on their rental history. Calculate the total number of rentals for each customer using aggregate functions on the `rental` table.
+
+86. **Film Rental Trends:**
+   Create a query to identify trends in film rentals over time, including the total number of rentals per month. Use aggregate functions to calculate the rental counts from the `rental` table.
+
+87. **Top Film Actors by Revenue:**
+   Write a query to identify the top film actors based on the revenue generated by films they appear in. Calculate the total revenue for each actor using aggregate functions on the `payment`, `film`, and `film_actor` tables.
+
+88. **Customer Satisfaction Analysis:**
+   Develop a query to analyze customer satisfaction ratings, including the average satisfaction rating across all rentals. Use aggregate functions to calculate the average rating from the `payment` table.
+
+89. **Film Rating Analysis:**
+   Create a query to analyze the distribution of film ratings, including the count of films for each rating. Use aggregate functions to calculate the counts from the `film` table.
+
+90. **Late Return Penalty Calculation:**
+    Write a query to calculate the total late return penalties collected from customers. Use aggregate functions to sum the late fees from the `payment` table.
+
+CRUD operations (Create, Read, Update, Delete) on tables in a database like Sakila:
+
+91. **Create Table:**
+   Write a SQL query to create a new table named `NewTable` with columns `id` (auto-increment), `name` (VARCHAR), and `age` (INT).
+
+92. **Insert Data:**
+   Insert a new record into the `customer` table with the following values: `first_name = 'John'`, `last_name = 'Doe'`, `email = 'john@example.com'`, `create_date = current timestamp`.
+
+93. **Update Record:**
+   Update the `rental` table to set the `return_date` to the current date where `rental_id` equals 100.
+
+94. **Delete Record:**
+   Delete all records from the `payment` table where the `amount` is less than 5.
+
+95. **Alter Table:**
+   Add a new column named `address` (VARCHAR) to the `customer` table.
+
+96. **Add Constraint:**
+   Add a foreign key constraint to the `rental` table, referencing the `customer_id` column to the `customer` table's `customer_id`.
+
+97. **Drop Table:**
+   Drop the table `NewTable` from the database.
+
+98. **Rename Table:**
+   Rename the table `actor` to `performer`.
+
+99. **Truncate Table:**
+   Truncate the `inventory` table to remove all its records while keeping the table structure intact.
+
+100. **Copy Table Structure:**
+    Create a new table named `customer_backup` with the same structure as the `customer` table but without any data.
